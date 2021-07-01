@@ -28,15 +28,21 @@ pp协议 c++ 定义如下：
 ```
 namespace pp {
 enum class status {
+    
     // 客户端请求码
-    request_connect = 0x0, // 建立连接，请求密钥的过程
-    data_transfer = 0x1,   // 传输数据
+    connect = 0x10, // 建立连接，请求密钥的过程
+    data_transfer = 0x11,  // 传输数据
 
     // 服务端响应码
-    protocol_error = 0x20,
-    ok = 0x30,
+    protocol_error = 0x20, // 协议解析错误
+    too_big = 0x21, // 传输数据过长
+    invalid_transfer = 0x22, // 无效传输
+    
+    ok = 0x30, // 请求成功
+    send_key = 0x31, // 发送密钥
 
-    redirct = 0x40, // server set route
+    redirct = 0x40, // 重置路由
+
 };
 
 // 数据类型
