@@ -1,7 +1,7 @@
-#include "pp.hh"
+#include <pwnsky/pp.hh>
 #include <iostream>
 
-using namespace pp;
+using namespace pwnsky::pp;
 
 int main() {
     pp_client ppc;    

@@ -16,6 +16,7 @@
 /*
  * Define pwnsky protocol
  * */
+namespace pwnsky {
 namespace pp {
 
 #define VESSEL_DEFAULT_SIZE  0x18
@@ -373,7 +374,7 @@ public:
             pp::header header;
             memset(&header, 0, sizeof(pp::header));
             header.magic = 0x5050;
-            header.status = (unsigned char)::pp::status::connect;
+            header.status = (unsigned char)pp::status::connect;
             header.type = (unsigned char)pp::data_type::binary_stream;
             write(fd_, &header, sizeof(pp::header));
 
@@ -501,3 +502,4 @@ private:
 };
 }
 
+}

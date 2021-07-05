@@ -5,21 +5,79 @@ using System.Text;
 using System.Net;
 using System.Runtime.InteropServices; //  StructLayoutAttribute
 using System;
+using System.Linq;
 
 /*
  * Pwnsky Protocl C# Client API
  * For Unity3d Game
  * */
-
-namespace PP
+namespace pwnsky {
+namespace pp
 {
-    public class PPT {
+    public class Pe {
+        private byte[] xorTable = new byte[]{
+    0xbe, 0xd1, 0x90, 0x88, 0x57, 0x00, 0xe9, 0x53, 0x10, 0xbd, 0x2a, 0x34, 0x51, 0x84, 0x07, 0xc4,
+    0x33, 0xc5, 0x3b, 0x53, 0x5f, 0xa8, 0x5d, 0x4b, 0x6d, 0x22, 0x63, 0x5d, 0x3c, 0xbd, 0x47, 0x6d,
+    0x22, 0x3f, 0x38, 0x4b, 0x7a, 0x4c, 0xb8, 0xcc, 0xb8, 0x37, 0x78, 0x17, 0x73, 0x23, 0x27, 0x71,
+    0xb1, 0xc7, 0xa6, 0xd1, 0xa0, 0x48, 0x21, 0xc4, 0x1b, 0x0a, 0xad, 0xc9, 0xa5, 0xe6, 0x14, 0x18,
+    0xfc, 0x7b, 0x53, 0x59, 0x8b, 0x0d, 0x07, 0xcd, 0x07, 0xcc, 0xbc, 0xa5, 0xe0, 0x28, 0x0e, 0xf9,
+    0x31, 0xc8, 0xed, 0x78, 0xf4, 0x75, 0x60, 0x65, 0x52, 0xb4, 0xfb, 0xbf, 0xac, 0x6e, 0xea, 0x5d,
+    0xca, 0x0d, 0xb5, 0x66, 0xac, 0xba, 0x06, 0x30, 0x95, 0xf4, 0x96, 0x42, 0x7a, 0x7f, 0x58, 0x6d,
+    0x83, 0x8e, 0xf6, 0x61, 0x7c, 0x0e, 0xfd, 0x09, 0x6e, 0x42, 0x6b, 0x1e, 0xb9, 0x14, 0x22, 0xf6,
+
+    0x16, 0xd2, 0xd2, 0x60, 0x29, 0x23, 0x32, 0x9e, 0xb4, 0x82, 0xee, 0x58, 0x3a, 0x7d, 0x1f, 0x74,
+    0x98, 0x5d, 0x17, 0x64, 0xe4, 0x6f, 0xf5, 0xad, 0x94, 0xaa, 0x89, 0xe3, 0xbe, 0x98, 0x91, 0x38,
+    0x70, 0xec, 0x2f, 0x5e, 0x9f, 0xc9, 0xb1, 0x26, 0x3a, 0x64, 0x48, 0x13, 0xf1, 0x1a, 0xc5, 0xd5,
+    0xe5, 0x66, 0x11, 0x11, 0x3a, 0xaa, 0x79, 0x45, 0x42, 0xb4, 0x57, 0x9d, 0x3f, 0xbc, 0xa3, 0xaa,
+    0x98, 0x4e, 0x6b, 0x7a, 0x4a, 0x2f, 0x3e, 0x10, 0x7a, 0xc5, 0x33, 0x8d, 0xac, 0x0b, 0x79, 0x33,
+    0x5d, 0x09, 0xfc, 0x9d, 0x9b, 0xe5, 0x18, 0xcd, 0x1c, 0x7c, 0x8b, 0x0a, 0xa8, 0x95, 0x56, 0xcc,
+    0x4e, 0x34, 0x31, 0x33, 0xf5, 0xc1, 0xf5, 0x03, 0x0a, 0x4a, 0xb4, 0xd1, 0x90, 0xf1, 0x8f, 0x57,
+    0x20, 0x05, 0x0d, 0xa0, 0xcd, 0x82, 0xb3, 0x25, 0xd8, 0xd2, 0x20, 0xf3, 0xc5, 0x96, 0x35, 0x35,
+    };
+        public void Encode(byte[] key, byte[] data) {
+            byte[] keys = new byte[8];
+            Array.Copy(key, key, keys.Length);
+            for(int i = 0; i < data.Length; i++) {
+                int n = ((keys[i & 7] + keys[(i + 1) & 7]) * keys[(i + 2) & 7] + keys[(i + 3) & 7]) & 0xff;
+                data[i] = (byte)(data[i] ^ (byte)n ^ xorTable[n]);
+                keys[i & 7] = (byte)((n * 2 + 3) & 0xff);
+                if((i & 0xf) == 0) {
+                    KeyRandom(key, keys, xorTable[i & 0xff]);
+                }
+            }
+        }
+
+        public void Decode(byte[] key, byte[] data) {
+            byte[] keys = new byte[8];
+            Array.Copy(key, key, keys.Length);
+            for(int i = 0; i < data.Length; i++) {
+                int n = ((keys[i & 7] + keys[(i + 1) & 7]) * keys[(i + 2) & 7] + keys[(i + 3) & 7]) & 0xff;
+                data[i] = (byte)(data[i] ^ (byte)n ^ xorTable[n]);
+                keys[i & 7] = (byte)((n * 2 + 3) & 0xff);
+                if((i & 0xf) == 0) {
+                    KeyRandom(key, keys, xorTable[i & 0xff]);
+                }
+            }
+        }
+
+        private void KeyRandom(byte[] raw_key, byte[] out_key, byte seed) {
+            for(int i = 0; i < 8; i ++)  {
+                out_key[i] = (byte)((raw_key[i] ^ xorTable[raw_key[i]]) & 0xff);
+                out_key[i] = (byte)(out_key[i] ^ seed + i);
+            } 
+        }
+    }
+
+    public class PPClient {
+    private byte[] key = new byte[8];  // pp key
+    private byte[] code = new byte[2]; // pp code
     private string host;
     private int port;
     private Socket tcpSock;
     bool disconnected = true;
-    public byte[] RecvRouter = new byte[4];
-    public bool ConnectServer(string host, int port) {
+    public byte[] RecvRouter = new byte[6];
+
+    public bool Connect(string host, int port) {
         if(this.host == host && this.port == port && disconnected == false) {
             return true;
         }
@@ -45,6 +103,78 @@ namespace PP
         } catch(Exception e) {  
             Console.WriteLine("Unexpected exception : " + e.ToString());  
         }
+
+        // 连接成功后，获取key请求
+        byte[] headerBytes = new byte[] {
+            0x50, 0x50, 0x10, 0x00, // 0x5050 标识头， 0x10 请求密钥, 0x00内容类型
+            0x00, 0x00, 0x00, 0x00, // 长度
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // route
+            0x00, 0x00 // code
+        };
+        try {
+            tcpSock.Send(headerBytes);
+        }catch (SocketException se) {
+            disconnected = true;
+        }
+
+        byte[] ppHeaderData = new byte[16];
+        byte[] ppMagicBytes = new byte[2]; 
+        byte[] ppStatusBytes = new byte[1]; 
+        //byte[] ppTypeBytes = new byte[1]; 
+        byte[] ppLengthBytes = new byte[4]; 
+        //byte[] ppRouteBytes = new byte[6]; 
+        byte[] ppCodeBytes = new byte[2]; 
+
+        // 接收数据
+        tcpSock.Receive(ppHeaderData, 0, ppHeaderData.Length, 0);
+
+        ppMagicBytes = ppHeaderData.Skip(0).Take(2).ToArray();   // 标识
+        ppStatusBytes = ppHeaderData.Skip(2).Take(1).ToArray();  // 状态
+        //ppTypeBytes = ppHeaderData.Skip(3).Take(1).ToArray(); // 类型
+        ppLengthBytes = ppHeaderData.Skip(4).Take(4).ToArray(); // 获取长度
+        //ppRouteBytes = ppHeaderData.Skip(8).Take(6).ToArray(); // 获取Route
+        ppCodeBytes = ppHeaderData.Skip(14).Take(2).ToArray(); // 获取Code
+
+        int ppLength = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(ppLengthBytes, 0));
+        byte ppStatus = ppStatusBytes[0];
+
+        if(ppStatus != 0x31) { // 密钥返回标识
+            Console.WriteLine("PP Connecte Failed!");
+            return false;
+        }
+
+        byte[] ppData = new byte[ppLength];
+        //int length = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(headerLength, 0));
+        Console.WriteLine("Content-Length: " + ppLength);
+        Console.WriteLine("Content-Length: " + ppStatus);
+
+        int recvedLen = 0;
+        while(ppLength > recvedLen) {
+            int recvLen = 0;
+            try {
+                tcpSock.Receive(ppData, recvedLen, ppLength - recvedLen, 0);
+            }catch (SocketException se) {
+                disconnected = true;
+            }
+            //length -= recvLen;
+            recvedLen += recvLen;
+            if(recvLen == 0) {
+                disconnected = true;
+                break;
+            }
+        }
+        //对密钥头部进行解密
+        
+
+
+        // 对内容进行解密，解密8字节就是密钥
+        key = ppData;
+        /*
+        for(int i = 0; i < ppData.Length; i++) {
+            Console.WriteLine("Data: " + key[i]);
+        }
+        */
+
         return result;
     }
 
@@ -62,7 +192,7 @@ namespace PP
             return false;
 
         }
-        byte[] headerBytes = new byte[] {0x50, 0x53, 0x50, 0x00};
+        byte[] headerBytes = new byte[] {0x50, 0x50, 0x50, 0x00};
         byte[] routerBytes = new byte[] {0x00, 0x00, 0x00, 0x00};
         byte[] lengthBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)data.Length));
         for(int i = 0; i < router.Length; i++) //复制router
@@ -115,5 +245,7 @@ namespace PP
         }
         return data;
     }
+}
+
 }
 }
