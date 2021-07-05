@@ -1,9 +1,15 @@
-# Pwnsky Protocol SDK
+# Pwnsky Protocol Client SDK
 
 提供不同语言pp协议接口
+目前语言支持:
+
+1. c++
+2. c#
+3. python
 
 
-描述: 
+
+## 描述
 
 pp 协议，全称为 pwnsky protocol, 是一款吸收http部分特性的一款二进制传输协议，主要用于游戏长连接交互协议，目前基于tcp来实现。
 
@@ -11,13 +17,13 @@ pp 协议，全称为 pwnsky protocol, 是一款吸收http部分特性的一款�
 
 pp协议中定义有状态码，数据类型，数据长度，请求路由。
 
-采用 pwnsky encryption进行数据加密，由服务端随机生成8字节密钥返回给客户端，客户端接收到之后，在断开之前传输数据都采用该密钥进行加解密。
+采用pe (pwnsky encryption)进行数据加密，由服务端随机生成8字节密钥返回给客户端，客户端接收到之后，在断开之前传输数据都采用该密钥进行加解密。
 
 ```
 --------------------------------------------------------------------------
 | magic 2字节 | status 1字节| type 1字节 |  length 4 字节                  |
 --------------------------------------------------------------------------
-|                          route 8 字节                                  |
+|                   route 6 字节             |        code 2字节          |
 --------------------------------------------------------------------------
 ```
 
@@ -63,7 +69,8 @@ struct header {
     unsigned char status;    // 客户端请求码与服务端响应码
     unsigned char type;      // 数据类型
     unsigned int length;     // 数据长度
-    char route[8];           // 请求路由，代替http url中的path
+    char route[6];           // 请求路由，代替http url中的path
+    char code[6];            // 校验code
 };
 
 }
