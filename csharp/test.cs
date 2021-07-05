@@ -5,7 +5,7 @@
  * */
 
 using System;
-using pwnsky.pp;
+using Pwnsky.PP;
 using System.Text;
 
 class Test {

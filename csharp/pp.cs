@@ -11,8 +11,8 @@ using System.Linq;
  * Pwnsky Protocl C# Client API
  * For Unity3d Game
  * */
-namespace pwnsky {
-namespace pp
+namespace Pwnsky {
+namespace PP
 {
     public class Pe {
         private byte[] xorTable = new byte[]{
