@@ -6,9 +6,10 @@
 
 using System;
 using pwnsky.pp;
+using System.Text;
 
 class Test {
-    public static PeTest() {
+    public static void PeTest() {
         Pe pe = new Pe();
         byte[] key = new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         string msg = "Hello World!";
@@ -27,6 +28,21 @@ class Test {
         System.Console.WriteLine("连接服务器中...");
 
         PPClient pp = new PPClient();
-        pp.Connect("127.0.0.1", 4096);
+        if(pp.Connect("pwnsky.com", 4096)) {
+            Console.WriteLine("连接成功!");
+        }else {
+            Console.WriteLine("连接失败!");
+        }
+        pp.Send(new byte[]{0x30}, Encoding.Default.GetBytes("Hello"));
+        while(true) {
+            byte[] data = pp.Recv();
+            if(data == null) {
+                Console.WriteLine("断开连接...");
+                break;
+            }
+            string msg;
+            msg = System.Text.Encoding.Default.GetString (data);
+            Console.WriteLine("接收: " + msg);
+        }
     }
 }

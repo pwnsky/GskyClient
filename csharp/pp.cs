@@ -36,7 +36,7 @@ namespace pp
     };
         public void Encode(byte[] key, byte[] data) {
             byte[] keys = new byte[8];
-            Array.Copy(key, key, keys.Length);
+            Array.Copy(key, keys, keys.Length);
             for(int i = 0; i < data.Length; i++) {
                 int n = ((keys[i & 7] + keys[(i + 1) & 7]) * keys[(i + 2) & 7] + keys[(i + 3) & 7]) & 0xff;
                 data[i] = (byte)(data[i] ^ (byte)n ^ xorTable[n]);
@@ -49,7 +49,7 @@ namespace pp
 
         public void Decode(byte[] key, byte[] data) {
             byte[] keys = new byte[8];
-            Array.Copy(key, key, keys.Length);
+            Array.Copy(key, keys, keys.Length);
             for(int i = 0; i < data.Length; i++) {
                 int n = ((keys[i & 7] + keys[(i + 1) & 7]) * keys[(i + 2) & 7] + keys[(i + 3) & 7]) & 0xff;
                 data[i] = (byte)(data[i] ^ (byte)n ^ xorTable[n]);
@@ -69,13 +69,13 @@ namespace pp
     }
 
     public class PPClient {
-    private byte[] key = new byte[8];  // pp key
+    private byte[] key = new byte[8] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // pp key
     private byte[] code = new byte[2]; // pp code
     private string host;
     private int port;
     private Socket tcpSock;
     bool disconnected = true;
-    public byte[] RecvRouter = new byte[6];
+    public byte[] recvRouter = new byte[6];
 
     public bool Connect(string host, int port) {
         if(this.host == host && this.port == port && disconnected == false) {
@@ -87,7 +87,7 @@ namespace pp
         bool result = false;
         IPAddress ipAddress;
         try {
-            ipAddress = IPAddress.Parse(host);
+            ipAddress = IPAddress.Parse(host); //解析失败采用dns解析
         } catch(Exception e) {
             IPHostEntry ipHostInfo = Dns.Resolve(host);
             ipAddress = ipHostInfo.AddressList[0];  
@@ -99,9 +99,11 @@ namespace pp
             result = true;
             disconnected = false;
         } catch (SocketException se) {
-            Console.WriteLine("Unexpected exception : " + se.ToString());  
+            Console.WriteLine("SocketException : " + se.ToString());  
+            return false;
         } catch(Exception e) {  
             Console.WriteLine("Unexpected exception : " + e.ToString());  
+            return false;
         }
 
         // 连接成功后，获取key请求
@@ -122,8 +124,9 @@ namespace pp
         byte[] ppStatusBytes = new byte[1]; 
         //byte[] ppTypeBytes = new byte[1]; 
         byte[] ppLengthBytes = new byte[4]; 
-        //byte[] ppRouteBytes = new byte[6]; 
         byte[] ppCodeBytes = new byte[2]; 
+
+        byte[] ppHeaderLeftBytes = new byte[8]; 
 
         // 接收数据
         tcpSock.Receive(ppHeaderData, 0, ppHeaderData.Length, 0);
@@ -132,49 +135,64 @@ namespace pp
         ppStatusBytes = ppHeaderData.Skip(2).Take(1).ToArray();  // 状态
         //ppTypeBytes = ppHeaderData.Skip(3).Take(1).ToArray(); // 类型
         ppLengthBytes = ppHeaderData.Skip(4).Take(4).ToArray(); // 获取长度
-        //ppRouteBytes = ppHeaderData.Skip(8).Take(6).ToArray(); // 获取Route
-        ppCodeBytes = ppHeaderData.Skip(14).Take(2).ToArray(); // 获取Code
+        ppHeaderLeftBytes = ppHeaderData.Skip(8).Take(8).ToArray(); // 获取头部剩余部分
 
         int ppLength = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(ppLengthBytes, 0));
         byte ppStatus = ppStatusBytes[0];
 
         if(ppStatus != 0x31) { // 密钥返回标识
             Console.WriteLine("PP Connecte Failed!");
+            tcpSock.Close();
+            disconnected = true;
             return false;
         }
 
+        //接受数据部分
         byte[] ppData = new byte[ppLength];
-        //int length = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(headerLength, 0));
-        Console.WriteLine("Content-Length: " + ppLength);
-        Console.WriteLine("Content-Length: " + ppStatus);
-
         int recvedLen = 0;
         while(ppLength > recvedLen) {
             int recvLen = 0;
             try {
-                tcpSock.Receive(ppData, recvedLen, ppLength - recvedLen, 0);
+                recvLen = tcpSock.Receive(ppData, recvedLen, ppLength - recvedLen, 0);
             }catch (SocketException se) {
+                Console.WriteLine("Unexpected exception : " + se.ToString());  
                 disconnected = true;
             }
-            //length -= recvLen;
             recvedLen += recvLen;
             if(recvLen == 0) {
+                Console.WriteLine("Disconnected!");
+                tcpSock.Close();
                 disconnected = true;
-                break;
+                return false;
+                //break;
             }
         }
-        //对密钥头部进行解密
-        
 
-
-        // 对内容进行解密，解密8字节就是密钥
-        key = ppData;
         /*
-        for(int i = 0; i < ppData.Length; i++) {
-            Console.WriteLine("Data: " + key[i]);
+        //对密钥头部进行解密
+        */
+        Pe pe = new Pe();
+
+        pe.Decode(key, ppHeaderLeftBytes);
+
+        ppCodeBytes = ppHeaderLeftBytes.Skip(6).Take(2).ToArray();
+        Array.Copy(ppCodeBytes, code, code.Length);
+
+        /*
+        for(int i = 0; i < code.Length; i++) {
+            Console.WriteLine("code: " + code[i]);
         }
         */
 
+        pe.Decode(key, ppData);
+        key = ppData;
+        Array.Copy(key, ppData, key.Length);
+        /*
+        for(int i = 0; i < ppData.Length; i++) {
+            Console.WriteLine("Key: " + key[i]);
+        }
+        */
+        //Console.WriteLine("Key: Deubg");
         return result;
     }
 
@@ -187,27 +205,45 @@ namespace pp
         tcpSock.Close();
     }
 
-    public bool SendData(byte[] router, byte[] data) {
-        if(router.Length > 4 || disconnected == true) {
+    public bool Send(byte[] route, byte[] data) {
+        if(route.Length > 4 || disconnected == true) {
             return false;
 
         }
-        byte[] headerBytes = new byte[] {0x50, 0x50, 0x50, 0x00};
-        byte[] routerBytes = new byte[] {0x00, 0x00, 0x00, 0x00};
-        byte[] lengthBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)data.Length));
-        for(int i = 0; i < router.Length; i++) //复制router
-        {
-            routerBytes[i] = router[i];
+        /*
+         * magic: 0x5050
+         * transfer: 0x11
+         * binary_stream: 0x00
+         * */
+
+        byte[] headerBytes = new byte[] {0x50, 0x50, 0x11, 0x00};
+        byte[] lengthBytes = BitConverter.GetBytes((int)IPAddress.HostToNetworkOrder((int)data.Length));
+        byte[] headerEncodyBytes = new byte[8];
+
+        if(route.Length > 6) {
+            Console.WriteLine("Route Length > 6");
+            return false;
         }
-            
-        //headerBytes = headerBytes.Concat(lengthBytes).ToArray();
-        Array.Resize(ref headerBytes, headerBytes.Length + routerBytes.Length + lengthBytes.Length);
-        routerBytes.CopyTo(headerBytes, headerBytes.Length - routerBytes.Length - lengthBytes.Length);
-        lengthBytes.CopyTo(headerBytes, headerBytes.Length - lengthBytes.Length);
+        for(int i = 0; i < route.Length; i++) //复制route
+        {
+            headerEncodyBytes[i] = route[i];
+        }
+
+        // 复制code
+        headerEncodyBytes[6] = code[0];
+        headerEncodyBytes[7] = code[1];
+        Pe pe = new Pe();
+        pe.Encode(key, headerEncodyBytes); //加密头部
+        pe.Encode(key, data);              //加密内容
+
+        Array.Resize(ref headerBytes, headerBytes.Length + lengthBytes.Length + headerEncodyBytes.Length);
+        lengthBytes.CopyTo(headerBytes, headerBytes.Length - lengthBytes.Length - headerEncodyBytes.Length); //复制到header Length位置
+        headerEncodyBytes.CopyTo(headerBytes, headerBytes.Length - headerEncodyBytes.Length); //复制到headerBytes中 Route
         try {
             tcpSock.Send(headerBytes);
         }catch (SocketException se) {
             disconnected = true;
+            return false;
         }
         
         int sendedLen = 0;
@@ -219,31 +255,60 @@ namespace pp
         return true;
     }
 
-    public byte[] RecvData() {
-        byte[] headerMagic = new byte[4];
-        byte[] headerLength = new byte[4];
-        tcpSock.Receive(headerMagic, 0, headerMagic.Length, 0);
-        tcpSock.Receive(RecvRouter, 0, RecvRouter.Length, 0);
-        tcpSock.Receive(headerLength, 0, headerLength.Length, 0);
-        int length = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(headerLength, 0));
-        Console.WriteLine("length: " + length.ToString());
-        byte[] data = new byte[length];
+    public byte[] Recv() {
+        if(disconnected) {
+            return null;
+        }
+
+        byte[] ppHeaderData = new byte[16];
+        byte[] ppMagicBytes = new byte[2]; 
+        byte[] ppStatusBytes = new byte[1]; 
+        byte[] ppTypeBytes = new byte[1]; 
+        byte[] ppLengthBytes = new byte[4]; 
+        byte[] ppCodeBytes = new byte[2]; 
+        byte[] ppHeaderLeftBytes = new byte[8]; 
+
+        // 接收数据
+        tcpSock.Receive(ppHeaderData, 0, ppHeaderData.Length, 0);
+
+        ppMagicBytes = ppHeaderData.Skip(0).Take(2).ToArray();   // 标识
+        ppStatusBytes = ppHeaderData.Skip(2).Take(1).ToArray();  // 状态
+        ppTypeBytes = ppHeaderData.Skip(3).Take(1).ToArray(); // 类型
+        ppLengthBytes = ppHeaderData.Skip(4).Take(4).ToArray(); // 获取长度
+        ppHeaderLeftBytes = ppHeaderData.Skip(8).Take(8).ToArray(); // 获取头部剩余部分
+
+        int ppLength = IPAddress.NetworkToHostOrder((int)BitConverter.ToUInt32(ppLengthBytes, 0));
+        byte ppStatus = ppStatusBytes[0];
+
+        //接受数据部分
+        byte[] ppData = new byte[ppLength];
         int recvedLen = 0;
-        while(length > recvedLen) {
+        while(ppLength > recvedLen) {
             int recvLen = 0;
             try {
-                tcpSock.Receive(data, recvedLen, length - recvedLen, 0);
+                recvLen = tcpSock.Receive(ppData, recvedLen, ppLength - recvedLen, 0);
             }catch (SocketException se) {
+                Console.WriteLine("Unexpected exception : " + se.ToString());  
                 disconnected = true;
             }
-            length -= recvLen;
             recvedLen += recvLen;
             if(recvLen == 0) {
+                Console.WriteLine("Disconnected!");
+                tcpSock.Close();
                 disconnected = true;
-                break;
+                return null;
+                //break;
             }
         }
-        return data;
+        /*
+        //对密钥头部进行解密
+        */
+        Pe pe = new Pe();
+        pe.Decode(key, ppHeaderLeftBytes);
+        pe.Decode(key, ppData);
+        //ppCodeBytes = ppHeaderLeftBytes.Skip(6).Take(2).ToArray();
+        Array.Copy(recvRouter, ppHeaderLeftBytes, recvRouter.Length);
+        return ppData;
     }
 }
 
