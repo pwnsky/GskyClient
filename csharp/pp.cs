@@ -201,6 +201,7 @@ namespace PP
     }
 
     public void Close() {
+        Array.Copy(new byte[8] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, key, key.Length); //密钥初始化
         disconnected = true;
         tcpSock.Close();
     }
