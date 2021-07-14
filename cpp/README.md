@@ -1,6 +1,6 @@
 # 客户端PP协议C++ SDK
 
-SDK文件: pp.hh
+SDK文件: pp_client.hh
 ## 安装路径
 /usr/include/pwnsky
 
@@ -19,7 +19,7 @@ make install
 测试代码:
 
 ```c++
-#include <pwnsky/pp.hh>
+#include <pwnsky/pp_client.hh>
 #include <iostream>
 
 using namespace pwnsky::pp;

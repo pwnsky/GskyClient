@@ -1,4 +1,4 @@
-#include <pwnsky/pp.hh>
+#include <pwnsky/pp_client.hh>
 #include <iostream>
 
 using namespace pwnsky::pp;
