@@ -75,7 +75,7 @@ namespace PP
     private int port;
     private Socket tcpSock;
     bool disconnected = true;
-    public byte[] recvRouter = new byte[6];
+    public byte[] router = new byte[6];
 
     public bool Connect(string host, int port) {
         if(this.host == host && this.port == port && disconnected == false) {
@@ -308,7 +308,7 @@ namespace PP
         pe.Decode(key, ppHeaderLeftBytes);
         pe.Decode(key, ppData);
         //ppCodeBytes = ppHeaderLeftBytes.Skip(6).Take(2).ToArray();
-        Array.Copy(recvRouter, ppHeaderLeftBytes, recvRouter.Length);
+        Array.Copy(ppHeaderLeftBytes, router, router.Length);
         return ppData;
     }
 }
